@@ -1,0 +1,15 @@
+{
+  "name": "clases-nucba-backend2",
+  "version": "1.0.0",
+  "description": "Módulo backend En este repo vamos a estar subiendo el código que desarrollemos en clase",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "typescript": "^5.2.2"
+  }
+}
