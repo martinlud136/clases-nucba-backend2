@@ -1,15 +1,23 @@
-import Usuario, {IUser} from "../models/usuario";
 import { sendEmail } from "../mailer/mailer";
+import Usuario, { IUser } from "../models/usuario";
 
-export const existeEmail =async (email:string): Promise<void> => {
-    const existeEmail: IUser | null = await Usuario.findOne({email})
+import {prisma} from "../app"
 
-    if(existeEmail  && existeEmail.verified){
-        throw new Error(`El correo ${email} ya está registrado`);
-    }
 
-    if(existeEmail && !existeEmail.verified){
-        await sendEmail(email, existeEmail.code as string)
-        throw new Error(`El usuario ya está registrado. Se envió el codigo de verificación a ${email}`)
-    }
-}
+export const existeEmail = async (email: string):Promise<void> => {
+	// const existeMail: IUser | null = await Usuario.findOne({ email });
+	const existeMail = await prisma.user.findFirst({
+		where: {
+			email
+		}
+	})
+
+	if (existeMail && existeMail.verified) {
+		throw new Error(`El correo ${email} ya está registrado`);
+	}
+
+	if (existeMail && !existeMail.verified) {
+		await sendEmail(email, existeMail.code as string)
+		throw new Error(`El usuario ya está registrado. Se envío nuevamente código de verificacion a ${email}`);
+	}
+};

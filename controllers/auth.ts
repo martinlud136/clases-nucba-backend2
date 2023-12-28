@@ -1,117 +1,146 @@
 import { Request, Response } from "express";
 import Usuario, { IUser } from "../models/usuario";
 import bcryptjs from "bcryptjs";
+import generarJWT from "../helpers/generarJWT";
+import { sendEmail } from "../mailer/mailer";
 import { ROLES } from "../helpers/constants";
 import randomstring from "randomstring";
-import { sendEmail } from "../mailer/mailer";
-import  generarJWT  from "../helpers/generarJWT";
 
-export const register =async (req:Request, res: Response): Promise<void> => {
-    const {nombre, email,password, rol}: IUser = req.body;
+import {prisma} from "../app"
 
-    const usuario = new Usuario({nombre, email, password, rol})
+export const register = async (req: Request, res:Response): Promise<void> => {
+    const {nombre, email, password, rol}: IUser= req.body;
 
-    const salt = bcryptjs.genSaltSync()
+    const usuario: IUser = {
+		nombre,
+		email,
+		password,
+		rol
+	}
 
-    usuario.password = bcryptjs.hashSync(password, salt)
+    const salt = bcryptjs.genSaltSync();
 
-    const adminKey = req.headers["admin-key"]
+    usuario.password = bcryptjs.hashSync(password, salt);
 
-    if(adminKey === process.env.KEYFORADMIN) {
-        usuario.rol = ROLES.admin
-    }
+	const adminKey = req.headers["admin-key"];
 
-    const newCode = randomstring.generate(6);
+	if (adminKey === process.env.KEYFORADMIN) {
+		usuario.rol = ROLES.admin;
+	}
 
-    usuario.code = newCode;
+	const newCode = randomstring.generate(6);
 
-    await usuario.save();
+	usuario.code = newCode
 
-    await sendEmail(email, newCode);
+    // await usuario.save();
+
+	await prisma.user.create({
+		data: usuario
+	})
+
+	await sendEmail(email, newCode);
 
     res.status(201).json({
         usuario
     })
-}
 
-export const login =async (req:Request, res: Response): Promise<void> => {
-    const {email,password}: IUser = req.body;
+};
 
-    try{
-        const usuario = await Usuario.findOne({email})
+export const login = async (req: Request, res: Response): Promise<void> => {
+	const { email, password }: IUser = req.body;
 
-        if(!usuario){
-            res.status(400).json({
-                msj: "No se encontró el email en la base de datos"
-            })
+	try {
+		// const usuario = await Usuario.findOne({ email });
+
+		const usuario = await prisma.user.findFirst({
+			where: {
+				email
+			}
+		})
+
+		if (!usuario) {
+			res.status(400).json({
+				msg: "No se encontró el email en la base de datos",
+			});
             return;
-        }
+		}
 
-        const validarPassword = bcryptjs.compareSync(password, usuario.password)
+		const validarPassword = bcryptjs.compareSync(password, usuario.password);
 
-        if(!validarPassword){
-            res.status(400).json({
-                msj: "La contraseña es incorrecta"
-            })
+		if (!validarPassword) {
+			res.status(400).json({
+				msg: "La contraseña es incorrecta",
+			});
             return;
-        }
-        console.log(usuario._id)
-        console.log(usuario.id)
-        const token = await generarJWT(usuario.id)
+		};
 
-        res.json({
-          usuario,
-          token,
-        });
+		const token = await generarJWT(usuario.id);
 
-    }catch(error){
-        console.log(error);
-        res.status(500).json({
-            msj: "Error en el servidor"
-        })
-    }
+		res.json({
+			usuario,
+			token,
+		});
+	} catch (error) {
+		console.log(error);
+		res.status(500).json({
+			msg: "Error en el servidor",
+		});
+	}
+};
 
-}
+export const verifyUser = async (req: Request, res: Response): Promise<void> => {
+	const {email, code} = req.body;
+	
+	try {
+		// const usuario = await Usuario.findOne({email})
 
-export const verifyUser =async (req:Request, res: Response): Promise<void>=> {
-    const { email, code } = req.body
+		const usuario = await prisma.user.findFirst({
+			where: {
+				email
+			}
+		})
 
-    try{
-        const usuario = await Usuario.findOne({email})
-
-        if(!usuario){
-            res.status(400).json({
-                msj: "No se encontró el email en la base de datos"
-            })
+		if(!usuario) {
+			res.status(400).json({
+				msg: "No se encontró el email en la base de datos",
+			});
             return;
-        }
+		};
 
-        if(usuario.verified) {
-            res.status(400).json({
-                msj: "El usuario ya está correctamente verificado"
-            })
-            return;
-        }
+		if(usuario.verified) {
+			res.status(400).json({
+				msg: "El usuario ya está correctamente verificado"
+			})
+			return
+		}
 
-        if(usuario.code !== code){
-            res.status(401).json({
-                msj: "El código ingresado es incorrecto"
-            })
-            return;
-        }
+		if(usuario.code !== code) {
+			res.status(401).json({
+				msg:"El código ingresado es incorrecto"
+			});
+			return
+		}
 
-        const usuarioActualizado = await Usuario.findOneAndUpdate({email}, {verified: true})
+		// const usuarioActualizado = await Usuario.findOneAndUpdate({email}, {verified: true} )
 
-        res.status(200).json({
-            msj: "Usuario verificado con éxito"
-        })
+		const usuarioActualizado = await prisma.user.update({
+			where: {
+				email
+			},
+			data: {
+				verified: true
+			}
+		});
 
-    }catch(error){
-        console.log(error);
-        res.status(500).json({
-            msj: "Error en el servidor"
-        })
-    }
+		res.status(200).json({
+			msg: "Usuario verificado con éxito"
+		})
 
+	} catch(error) {
+		console.log(error);
+		res.status(500).json({
+			msg: "Error en el servidor",
+		});
+	}
 
-}
+};

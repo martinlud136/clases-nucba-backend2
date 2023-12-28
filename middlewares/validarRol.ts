@@ -1,15 +1,16 @@
 import { NextFunction, Request, Response } from "express";
 import { ROLES } from "../helpers/constants";
 
-export const isAdmin = (req: Request, res:Response, next: NextFunction) => {
-    const { rol } = req.body.usuarioConfirmado;
+export const isAdmin = (req: Request, res: Response, next: NextFunction) => {
 
-    if(rol !== ROLES.admin){
+    const {rol} = req.body.usuarioConfirmado;
+
+    if(rol !== ROLES.admin) {
         res.status(401).json({
-            msj: "El usuario no es administrador"
+            msg: "El usuario no es administrador"
         })
-        return;
+        return
     }
 
-    next()
+    next();
 }
